@@ -1,0 +1,921 @@
+openapi: 3.1.0
+info:
+  title: Crixto Admin API
+  version: 1.0.0
+  description: OpenAPI document for the current auth, account, users, and passkey payloads.
+
+servers:
+  - url: http://192.168.100.114:3333
+    description: Local API Server
+
+tags:
+  - name: Auth
+  - name: Account
+  - name: Users
+  - name: Passkeys
+  - name: CryptoAssets
+  - name: Networks
+  - name: Signers
+
+paths:
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Self-sign up
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '200':
+          description: User created and API token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithTokenResponse'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: User authenticated and API token issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithTokenResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke current API token
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/passkey/login/options:
+    post:
+      tags: [Passkeys]
+      summary: Generate passkey login options
+      description: Optionally scopes allowed credentials by email. Returns a flowId that must be echoed back to the verify endpoint.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyLoginOptionsRequest'
+      responses:
+        '200':
+          description: Flow created and WebAuthn request options returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyFlowResponse'
+
+  /auth/passkey/login/verify:
+    post:
+      tags: [Passkeys]
+      summary: Verify passkey login response
+      description: Verifies passkey challenge and returns an API token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyLoginVerifyRequest'
+      responses:
+        '200':
+          description: Passkey verified and API token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithTokenResponse'
+
+  /auth/passkey/register/options:
+    post:
+      tags: [Passkeys]
+      summary: Generate passkey registration options
+      description: Requires an authenticated API token. Returns a flowId that must be echoed back to the verify endpoint.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Flow created and WebAuthn creation options returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyFlowResponse'
+
+  /auth/passkey/register/verify:
+    post:
+      tags: [Passkeys]
+      summary: Verify passkey registration response
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyRegisterVerifyRequest'
+      responses:
+        '200':
+          description: Passkey stored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+
+  /account/profile:
+    get:
+      tags: [Account]
+      summary: Get current authenticated profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users:
+    post:
+      tags: [Users]
+      summary: Create a user as an authenticated user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '200':
+          description: User created and API token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithTokenResponse'
+
+  /crypto_assets:
+    get:
+      tags: [CryptoAssets]
+      summary: List crypto assets
+      description: Relays upstream GET /crypto-assets endpoint.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: perPage
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Currency list response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CryptoAssetIndexResponse'
+                  - $ref: '#/components/schemas/PaginatedCryptoAssetResponse'
+
+    post:
+      tags: [CryptoAssets]
+      summary: Create crypto asset
+      description: Relays upstream POST /crypto-assets endpoint.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CryptoAssetStoreRequest'
+      responses:
+        '201':
+          description: Crypto asset created
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CryptoAssetIndexResponse'
+                  - $ref: '#/components/schemas/PaginatedCryptoAssetResponse'
+
+  /crypto_assets/{id}:
+    put:
+      tags: [CryptoAssets]
+      summary: Update crypto asset
+      description: Relays upstream PUT /crypto-assets/:id endpoint.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CryptoAssetUpdateRequest'
+            example:
+              symbol: LTC
+              name: Litecoin
+              baseUnitFactor: '1000000'
+              coinType: 900
+              platformFee: '10'
+              networks:
+                - multisigMinAmount: '1000000'
+                  sweepThresholdAmount: '1000000'
+                  id: 6
+                  enabled: true
+                  refillThresholdAmount: '20'
+      responses:
+        '200':
+          description: Crypto asset updated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CryptoAssetResponse'
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+              example:
+                id: 6
+                symbol: LTC
+                type: coin
+                name: Litecoin
+                coinType: 2
+                baseUnitFactor: '1000000000000000000'
+                platformFee: '100000000000000'
+                createdAt: '2025-12-10T15:15:37.000+00:00'
+                updatedAt: '2025-12-10T15:15:38.000+00:00'
+                networks:
+                  - id: 1
+                    name: Ethereum Smart Chain
+                    enabled: true
+                    standard: ERC20
+                    allowsTokens: true
+                    createdAt: '2025-12-10T13:39:17.000+00:00'
+                    updatedAt: '2025-12-10T13:39:18.000+00:00'
+                    smartContractId: 1
+                    asset_enabled: false
+                    token_address: 0xdac17f958d2ee523a2206206994597c13d831ec7
+                    sweep_threshold_amount: '1000000'
+                    multisig_min_amount: '1000000'
+                    refill_threshold_amount: '20'
+                  - id: 6
+                    name: Litecoin
+                    enabled: false
+                    standard: BTC
+                    allowsTokens: false
+                    createdAt: '2025-12-10T13:40:34.000+00:00'
+                    updatedAt: '2026-04-17T14:08:17.755+00:00'
+                    smartContractId: 0
+                    asset_enabled: true
+                    token_address: 0xdac17f958d2ee523a2206206994597c13d831ec7
+                    sweep_threshold_amount: '1000000'
+                    multisig_min_amount: '1000000'
+                    refill_threshold_amount: '20'
+
+  /networks:
+    get:
+      tags: [Networks]
+      summary: List networks
+      description: Relays upstream GET /networks endpoint.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: perPage
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Network list response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/NetworkIndexResponse'
+                  - $ref: '#/components/schemas/PaginatedNetworkResponse'
+
+  /networks/{id}/toggle-status:
+    post:
+      tags: [Networks]
+      summary: Toggle network status
+      description: Relays upstream POST /networks/:id/toggle-status endpoint.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Network disabled
+          content:
+            application/json:
+              schema:
+                type: 'null'
+
+  /signers:
+    get:
+      tags: [Signers]
+      summary: List signers
+      description: Relays upstream GET /signers endpoint.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: perPage
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Signer list response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SignerIndexResponse'
+                  - $ref: '#/components/schemas/PaginatedSignerResponse'
+
+    post:
+      tags: [Signers]
+      summary: Create signer
+      description: Relays upstream POST /signers endpoint.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignerStoreRequest'
+      responses:
+        '201':
+          description: Signer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Signer'
+
+  /signers/{id}/disable:
+    post:
+      tags: [Signers]
+      summary: Disable signer
+      description: Relays upstream POST /signers/:id/disable endpoint.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Signer disabled
+          content:
+            application/json:
+              schema:
+                type: 'null'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Token
+
+  schemas:
+    User:
+      type: object
+      required: [id, email, requiresPasskeyLogin, createdAt, initials]
+      properties:
+        id:
+          type: integer
+          example: 1
+        fullName:
+          type: string
+          nullable: true
+          example: Jane Doe
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        requiresPasskeyLogin:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        initials:
+          type: string
+          example: JD
+
+    UserResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+
+    UserWithTokenResponse:
+      type: object
+      required: [user, token]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
+          example: oAT2...token...
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Logged out successfully
+
+    VerificationResponse:
+      type: object
+      required: [verified]
+      properties:
+        verified:
+          type: boolean
+
+    CryptoAssetStoreNetworkRequest:
+      type: object
+      required:
+        [enabled, allowsTokens, assetEnabled, tokenAddress, sweepThresholdAmount, refillThresholdAmount]
+      properties:
+        enabled:
+          type: boolean
+        allowsTokens:
+          type: boolean
+        assetEnabled:
+          type: boolean
+        tokenAddress:
+          type: string
+        sweepThresholdAmount:
+          type: string
+        multisigMinAmount:
+          type: string
+        refillThresholdAmount:
+          type: string
+
+    CryptoAssetStoreRequest:
+      type: object
+      required: [symbol, type, name, baseUnitFactor, platformFee, networks]
+      properties:
+        symbol:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        baseUnitFactor:
+          type: string
+        platformFee:
+          type: string
+        networks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CryptoAssetStoreNetworkRequest'
+
+    CryptoAssetUpdateNetworkRequest:
+      type: object
+      required: [id, sweepThresholdAmount, tokenAddress, refillThresholdAmount]
+      properties:
+        id:
+          type: integer
+        enabled:
+          type: boolean
+        sweepThresholdAmount:
+          type: string
+        multisigMinAmount:
+          type: string
+        refillThresholdAmount:
+          type: string
+        baseUnitFactor:
+          type: string
+
+    CryptoAssetUpdateRequest:
+      type: object
+      required: [symbol, name, networks]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        networks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CryptoAssetUpdateNetworkRequest'
+
+    CryptoAssetNetwork:
+      type: object
+      required:
+        [id, name, enabled, standard, allowsTokens, asset_enabled, token_address, sweep_threshold_amount, refill_threshold_amount]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        enabled:
+          type: boolean
+        standard:
+          type: string
+        allowsTokens:
+          type: boolean
+        asset_enabled:
+          type: boolean
+        token_address:
+          type: string
+        sweep_threshold_amount:
+          type: string
+        multisig_min_amount:
+          type: string
+          nullable: true
+        refill_threshold_amount:
+          type: string
+
+    CryptoAssetResponse:
+      type: object
+      required:
+        [id, symbol, type, name, coinType, baseUnitFactor, platformFee, createdAt, updatedAt, networks]
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        coinType:
+          type: integer
+        baseUnitFactor:
+          type: string
+        platformFee:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        networks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CryptoAssetNetwork'
+
+    CryptoAssetIndexResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/CryptoAssetResponse'
+
+    CryptoAssetInNetwork:
+      type: object
+      required: [id, name, symbol, asset_enabled, sweep_threshold_amount, refill_threshold_amount]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        symbol:
+          type: string
+        asset_enabled:
+          type: boolean
+        token_address:
+          type: string
+          nullable: true
+        sweep_threshold_amount:
+          type: string
+        refill_threshold_amount:
+          type: string
+
+    Network:
+      type: object
+      required: [id, name, enabled, standard, allowsTokens, smartContractId, createdAt, updatedAt, cryptoAssets]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        enabled:
+          type: boolean
+        standard:
+          type: string
+        allowsTokens:
+          type: boolean
+        smartContractId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        cryptoAssets:
+          type: array
+          items:
+            $ref: '#/components/schemas/CryptoAssetInNetwork'
+
+    NetworkIndexResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/Network'
+
+    Signer:
+      type: object
+      required: [id, uuid, host, enabled, description, type, isMonoSigner, createdAt, updatedAt, isReady]
+      properties:
+        id:
+          type: integer
+        uuid:
+          type: string
+          format: uuid
+        host:
+          type: string
+        enabled:
+          type: boolean
+        description:
+          type: string
+        type:
+          type: string
+        isMonoSigner:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        isReady:
+          type: boolean
+
+    SignerIndexResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/Signer'
+
+    SignerStoreRequest:
+      type: object
+      required: [host, description, type]
+      properties:
+        host:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+
+    PaginatedCryptoAssetResponse:
+      type: object
+      required: [total, perPage, lastPage, firstPage, data]
+      properties:
+        total:
+          type: integer
+        perPage:
+          type: integer
+        lastPage:
+          type: integer
+        firstPage:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CryptoAssetResponse'
+
+    PaginatedNetworkResponse:
+      type: object
+      required: [total, perPage, lastPage, firstPage, data]
+      properties:
+        total:
+          type: integer
+        perPage:
+          type: integer
+        lastPage:
+          type: integer
+        firstPage:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Network'
+
+    PaginatedSignerResponse:
+      type: object
+      required: [total, perPage, lastPage, firstPage, data]
+      properties:
+        total:
+          type: integer
+        perPage:
+          type: integer
+        lastPage:
+          type: integer
+        firstPage:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signer'
+
+    SignupRequest:
+      type: object
+      required: [email, password, passwordConfirmation]
+      properties:
+        fullName:
+          type: string
+          nullable: true
+          example: Jane Doe
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        password:
+          type: string
+          minLength: 8
+          maxLength: 32
+          format: password
+        passwordConfirmation:
+          type: string
+          minLength: 8
+          maxLength: 32
+          format: password
+        requiresPasskeyLogin:
+          type: boolean
+          default: false
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        password:
+          type: string
+          format: password
+
+    PasskeyLoginOptionsRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: Optional. When provided, limits allowed credentials to that user's passkeys.
+
+    PasskeyFlowResponse:
+      type: object
+      required: [flowId, options]
+      properties:
+        flowId:
+          type: string
+          format: uuid
+        options:
+          type: object
+          description: SimpleWebAuthn-generated options JSON returned by the server.
+          additionalProperties: true
+
+    PasskeyRegisterVerifyRequest:
+      allOf:
+        - type: object
+          required: [flowId]
+          properties:
+            flowId:
+              type: string
+              format: uuid
+        - $ref: '#/components/schemas/WebAuthnRegistrationResponseJSON'
+
+    PasskeyLoginVerifyRequest:
+      allOf:
+        - type: object
+          required: [flowId]
+          properties:
+            flowId:
+              type: string
+              format: uuid
+        - $ref: '#/components/schemas/WebAuthnAuthenticationResponseJSON'
+
+    WebAuthnRegistrationResponseJSON:
+      type: object
+      required: [id, rawId, response, clientExtensionResults, type]
+      properties:
+        id:
+          type: string
+        rawId:
+          type: string
+        type:
+          type: string
+          enum: [public-key]
+        authenticatorAttachment:
+          type: string
+          nullable: true
+        clientExtensionResults:
+          type: object
+          additionalProperties: true
+        response:
+          type: object
+          required: [clientDataJSON, attestationObject]
+          properties:
+            clientDataJSON:
+              type: string
+            attestationObject:
+              type: string
+            transports:
+              type: array
+              items:
+                type: string
+            publicKeyAlgorithm:
+              type: integer
+            publicKey:
+              type: string
+
+    WebAuthnAuthenticationResponseJSON:
+      type: object
+      required: [id, rawId, response, clientExtensionResults, type]
+      properties:
+        id:
+          type: string
+        rawId:
+          type: string
+        type:
+          type: string
+          enum: [public-key]
+        authenticatorAttachment:
+          type: string
+          nullable: true
+        clientExtensionResults:
+          type: object
+          additionalProperties: true
+        response:
+          type: object
+          required: [clientDataJSON, authenticatorData, signature]
+          properties:
+            clientDataJSON:
+              type: string
+            authenticatorData:
+              type: string
+            signature:
+              type: string
+            userHandle:
+              type: string
+              nullable: true
