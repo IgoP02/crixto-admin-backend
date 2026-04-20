@@ -1,12 +1,15 @@
 import { emitConfigUpdate } from '#services/config_update_emitter'
-import { upstreamApiService } from '#services/upstream_api_service'
+import { type CurrenciesApi, upstreamApiService } from '#services/upstream_api_service'
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import { type UpstreamApi } from '../interfaces/upstream_api.ts'
 
 export default class CurrenciesController {
   async index({ request, response }: HttpContext) {
-    const data = await upstreamApiService.get('/crypto-assets', request.qs())
+    const data = await upstreamApiService.get<CurrenciesApi['index']>(
+      '/crypto-assets',
+      request.qs() as any
+    )
     return response.ok(data)
   }
 
@@ -31,7 +34,10 @@ export default class CurrenciesController {
         ),
       })
     )
-    const data = await upstreamApiService.post('/crypto-assets/token', payload)
+    const data = await upstreamApiService.post<UpstreamApi['currencies']['store']>(
+      '/crypto-assets/token',
+      payload
+    )
 
     console.log(data)
 
@@ -74,5 +80,33 @@ export default class CurrenciesController {
     emitConfigUpdate('crypto-asset', 'update', { id, ...data })
 
     return response.ok(data)
+  }
+
+  public async updateThresholds({ request, response }: HttpContext) {
+    const {
+      params,
+      ...payload
+    }: {
+      params: { cryptoAssetId: number; networkId: number }
+      accountDailyWithdrawLimit: string
+      accountsWithdrawMinFunds: number
+      accountsWithdrawMaxFunds: number
+    } = await request.validateUsing(
+      vine.create({
+        accountDailyWithdrawLimit: vine.string().regex(/^\d+$/),
+        accountsWithdrawMinFunds: vine.number().range([1, 100]),
+        accountsWithdrawMaxFunds: vine.number().range([1, 100]),
+        params: vine.object({ cryptoAssetId: vine.number(), networkId: vine.number() }),
+      })
+    )
+
+    const { cryptoAssetId, networkId } = params
+
+    const res = await upstreamApiService.put<UpstreamApi['thresholds']['update']>(
+      `/crypto-asset-thresholds/${cryptoAssetId}/${networkId}`,
+      payload
+    )
+
+    response.ok(res)
   }
 }

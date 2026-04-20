@@ -16,6 +16,7 @@ tags:
   - name: CryptoAssets
   - name: Networks
   - name: Signers
+  - name: Liquidity
 
 paths:
   /auth/signup:
@@ -306,6 +307,27 @@ paths:
                     multisig_min_amount: '1000000'
                     refill_threshold_amount: '20'
 
+  /crypto_assets/movement-threshold:
+    put:
+      tags: [CryptoAssets]
+      summary: Update crypto asset movement thresholds
+      description: Updates crypto asset movement thresholds by forwarding to upstream PUT /crypto-asset-thresholds/:cryptoAssetId/:networkId.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CryptoAssetMovementThresholdUpdateRequest'
+      responses:
+        '200':
+          description: Crypto asset movement thresholds updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CryptoAssetMovementThresholdUpdateResponse'
+
   /networks:
     get:
       tags: [Networks]
@@ -429,6 +451,21 @@ paths:
             application/json:
               schema:
                 type: 'null'
+
+  /liquidity/snapshot:
+    get:
+      tags: [Liquidity]
+      summary: Get current liquidity snapshot
+      description: Relays upstream GET /liquidity/snapshot endpoint. Returns current gas balances, wallet information, and asset balances.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current liquidity snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiquiditySnapshotResponse'
 
 components:
   securitySchemes:
@@ -567,6 +604,47 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CryptoAssetUpdateNetworkRequest'
+
+    CryptoAssetMovementThresholdRouteParams:
+      type: object
+      required: [cryptoAssetId, networkId]
+      properties:
+        cryptoAssetId:
+          type: integer
+        networkId:
+          type: integer
+
+    CryptoAssetMovementThresholdUpdateRequest:
+      type: object
+      required:
+        [accountDailyWithdrawLimit, accountsWithdrawMinFunds, accountsWithdrawMaxFunds, params]
+      properties:
+        accountDailyWithdrawLimit:
+          type: string
+          pattern: '^\\d+$'
+          description: Daily withdrawal limit as a numeric string
+        accountsWithdrawMinFunds:
+          type: number
+          minimum: 1
+          maximum: 100
+        accountsWithdrawMaxFunds:
+          type: number
+          minimum: 1
+          maximum: 100
+        params:
+          $ref: '#/components/schemas/CryptoAssetMovementThresholdRouteParams'
+
+    CryptoAssetMovementThresholdUpdateResponse:
+      type: object
+      required:
+        [accountDailyWithdrawLimit, accountsWithdrawMinFunds, accountsWithdrawMaxFunds]
+      properties:
+        accountDailyWithdrawLimit:
+          type: number
+        accountsWithdrawMinFunds:
+          type: string
+        accountsWithdrawMaxFunds:
+          type: string
 
     CryptoAssetNetwork:
       type: object
@@ -919,3 +997,144 @@ components:
             userHandle:
               type: string
               nullable: true
+
+    LiquidityThreshold:
+      type: object
+      required: [accountDailyWitdrawLimit, accountWithdrawMinFunds, accountWithdrawMaxFunds]
+      properties:
+        accountDailyWitdrawLimit:
+          type: string
+          description: Daily withdrawal limit for the account
+        accountWithdrawMinFunds:
+          type: number
+          description: Minimum funds required for withdrawal
+        accountWithdrawMaxFunds:
+          type: number
+          description: Maximum funds allowed for withdrawal
+
+    LiquidityGasItem:
+      type: object
+      required: [networkId, description, coinName, gasAddress, gasBalance]
+      properties:
+        networkId:
+          type: integer
+          description: Network identifier
+        description:
+          type: string
+          description: Description of the gas wallet
+        coinName:
+          type: string
+          description: Name of the gas coin
+        gasAddress:
+          type: string
+          description: Address of the gas wallet
+        gasBalance:
+          type: string
+          description: Current balance in the gas wallet
+
+    LiquidityWalletBalanceItem:
+      type: object
+      required: [assetId, assetName, assetType, balance, address, thresholds]
+      properties:
+        assetId:
+          type: integer
+          description: Identifier of the crypto asset
+        assetName:
+          type: string
+          description: Name of the crypto asset
+        assetType:
+          type: string
+          description: Type of the crypto asset
+        balance:
+          type: string
+          description: Current balance of the asset in the wallet
+        address:
+          type: string
+          description: Wallet address holding the asset
+        thresholds:
+          $ref: '#/components/schemas/LiquidityThreshold'
+
+    LiquidityWalletItem:
+      type: object
+      required: [walletId, walletUuid, walletProxyContract, type, enabled, networkId, networkName, networkEnabled, balances]
+      properties:
+        walletId:
+          type: integer
+          description: Identifier of the wallet
+        walletUuid:
+          type: string
+          format: uuid
+          description: UUID of the wallet
+        walletProxyContract:
+          type: string
+          description: Address of the proxy contract for the wallet
+        type:
+          type: string
+          description: Type of wallet (e.g., 'hot', 'cold')
+        enabled:
+          type: boolean
+          description: Whether the wallet is enabled
+        networkId:
+          type: integer
+          description: Network on which the wallet operates
+        networkName:
+          type: string
+          description: Name of the network
+        networkEnabled:
+          type: boolean
+          description: Whether the network is enabled
+        balances:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiquidityWalletBalanceItem'
+
+    LiquidityBalanceItem:
+      type: object
+      required: [networkId, networkName, cryptoAssetId, cryptoAssetname, cryptoAssetType, balance, balanceOut, balanceCold, thresholds]
+      properties:
+        networkId:
+          type: integer
+          description: Network identifier
+        networkName:
+          type: string
+          description: Name of the network
+        cryptoAssetId:
+          type: integer
+          description: Identifier of the crypto asset
+        cryptoAssetname:
+          type: string
+          description: Name of the crypto asset
+        cryptoAssetType:
+          type: string
+          description: Type of the crypto asset
+        balance:
+          type: string
+          description: Total balance of the asset
+        balanceOut:
+          type: string
+          description: Balance currently out (in cold storage or awaiting settlement)
+        balanceCold:
+          type: string
+          description: Balance in cold storage
+        thresholds:
+          $ref: '#/components/schemas/LiquidityThreshold'
+
+    LiquiditySnapshotResponse:
+      type: object
+      required: [gas, wallets, balances]
+      properties:
+        gas:
+          type: array
+          description: List of gas wallet balances across networks
+          items:
+            $ref: '#/components/schemas/LiquidityGasItem'
+        wallets:
+          type: array
+          description: List of managed wallets with their balances
+          items:
+            $ref: '#/components/schemas/LiquidityWalletItem'
+        balances:
+          type: array
+          description: Aggregated balance information per network and asset
+          items:
+            $ref: '#/components/schemas/LiquidityBalanceItem'

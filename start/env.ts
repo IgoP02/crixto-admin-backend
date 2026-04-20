@@ -36,6 +36,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   UPSTREAM_API_KEY: Env.schema.string(),
   UPSTREAM_SOCKET_URL: Env.schema.string({ format: 'url', tld: false }),
 
+  SOCKET_IO_AUTH_TOKEN: Env.schema.string(),
+
   // WebAuthn / Passkey
   WAUTHN_RP_NAME: Env.schema.string(),
   WAUTHN_RP_ID: Env.schema.string(),

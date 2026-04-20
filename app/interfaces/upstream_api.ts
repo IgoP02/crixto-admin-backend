@@ -1,4 +1,4 @@
-interface EndpointShape<T, Y> {
+export type EndpointShape<T, Y> = {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   route: string
   queryParams?: Record<string, string | number>
@@ -17,7 +17,7 @@ export interface UpstreamApi extends Record<string, Record<string, EndpointShape
     }
     store: {
       method: 'POST'
-      route: '/crypto-assets'
+      route: '/crypto-assets/token'
       payload: {
         symbol: string
         name: string
@@ -111,6 +111,29 @@ export interface UpstreamApi extends Record<string, Record<string, EndpointShape
       response: null
     }
   }
+  liquidity: {
+    snapshot: {
+      method: 'GET'
+      route: '/transactions/liquidity/snapshot'
+      response: LiquiditySnapshotResponse
+    }
+  }
+  thresholds: {
+    update: {
+      route: `/crypto-asset-thresholds/${number}/${number}`
+      method: 'PUT'
+      payload: {
+        accountDailyWithdrawLimit: string
+        accountsWithdrawMinFunds: number
+        accountsWithdrawMaxFunds: number
+      }
+      response: {
+        accountDailyWithdrawLimit: number
+        accountsWithdrawMinFunds: string
+        accountsWithdrawMaxFunds: string
+      }
+    }
+  }
 }
 
 export type CryptoAssetIndexResponse = CryptoAssetResponse[]
@@ -196,4 +219,117 @@ export interface ValidationError {
   message: string
   rule: string
   field: string
+}
+
+export interface LiquidityThreshold {
+  accountDailyWitdrawLimit: string
+  accountWithdrawMinFunds: number
+  accountWithdrawMaxFunds: number
+}
+
+export interface LiquidityGasItem {
+  networkId: number
+  description: string
+  coinName: string
+  gasAddress: string
+  gasBalance: string
+}
+
+export interface LiquidityWalletBalanceItem {
+  assetId: number
+  assetName: string
+  assetType: string
+  balance: string
+  address: string
+  thresholds: LiquidityThreshold
+}
+
+export interface LiquidityWalletItem {
+  walletId: number
+  walletUuid: string
+  walletProxyContract: string
+  type: string
+  enabled: boolean
+  networkId: number
+  networkName: string
+  networkEnabled: boolean
+  balances: LiquidityWalletBalanceItem[]
+}
+
+export interface LiquidityBalanceItem {
+  networkId: number
+  networkName: string
+  cryptoAssetId: number
+  cryptoAssetname: string
+  cryptoAssetType: string
+  balance: string
+  balanceOut: string
+  balanceCold: string
+  thresholds: LiquidityThreshold
+}
+
+export interface LiquiditySnapshotResponse {
+  gas: LiquidityGasItem[]
+  wallets: LiquidityWalletItem[]
+  balances: LiquidityBalanceItem[]
+}
+
+/**
+ * SOCKET SERVICE
+ */
+
+// ---------------------------------------------------------------------------
+// Liquidity WebSocket events (server → client, room: 'liquidity')
+// ---------------------------------------------------------------------------
+
+/** Emitted once when a client joins the 'liquidity' room to confirm connection. */
+export interface LiquidityOnlinePayload {
+  liquidity: 'online'
+}
+
+/** Emitted after each liquidity cycle with gas wallet balances for all enabled networks. */
+export interface LiquidityGasPayload {
+  gas: LiquidityGasItem[]
+}
+
+/**
+ * Emitted after each liquidity cycle.
+ * Two shapes are sent in sequence:
+ *   1. { wallets }  — raw per-wallet balances for every asset/network
+ *   2. { balances } — derived cold/out balance comparison per asset/network
+ */
+export type LiquidityBalancesPayload =
+  | { wallets: LiquidityWalletItem[] }
+  | { balances: LiquidityBalanceItem[] }
+  | LiquidityOnlinePayload
+
+/** Emitted throughout the liquidity decision process as human-readable log lines. */
+export interface LiquidityConsolePayload {
+  text: string
+}
+
+/**
+ * Full map of events and their payloads emitted by the server
+ * on the 'liquidity' Socket.IO room.
+ *
+ * Usage (socket.io-client):
+ *   socket.on('gas',      (data: LiquidityGasPayload)      => { ... })
+ *   socket.on('balances', (data: LiquidityBalancesPayload) => { ... })
+ *   socket.on('console',  (data: LiquidityConsolePayload)  => { ... })
+ */
+export interface LiquidityServerEvents {
+  gas: LiquidityGasPayload
+  balances: LiquidityBalancesPayload
+  console: LiquidityConsolePayload
+}
+
+/**
+ * Events emitted by the client to the server for the 'liquidity' room.
+ * Both events carry no payload — they only signal intent to join the room.
+ *
+ * Usage (socket.io-client):
+ *   socket.emit('join_liquidity')
+ */
+export interface LiquidityClientEvents {
+  join_liquidity: () => void
 }

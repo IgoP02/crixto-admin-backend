@@ -128,6 +128,7 @@ router.group(() => {
       router.get('/', [controllers.Currencies, 'index'])
       router.post('/', [controllers.Currencies, 'store'])
       router.put('/:id', [controllers.Currencies, 'update'])
+      router.put('/movement-threshold', [controllers.Currencies, 'updateThresholds'])
     })
     .prefix('crypto_assets')
     .as('crypto_assets')
@@ -150,5 +151,11 @@ router.group(() => {
     })
     .prefix('signers')
     .as('signers')
+    .use(middleware.auth())
+
+  router
+    .get('/snapshot', [controllers.Liquidities, 'getCurrent'])
+    .prefix('liquidity')
+    .as('liquidity')
     .use(middleware.auth())
 })

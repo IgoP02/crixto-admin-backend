@@ -4,6 +4,11 @@ import { Secret } from '@adonisjs/core/helpers'
 import type { Server as HttpServer } from 'node:http'
 import { Server as SocketServer } from 'socket.io'
 import { io as connectUpstream, type Socket as ClientSocket } from 'socket.io-client'
+import {
+  type LiquidityBalancesPayload,
+  type LiquidityConsolePayload,
+  type LiquidityGasPayload,
+} from '../interfaces/upstream_api.ts'
 
 let io: SocketServer | null = null
 let upstreamSocket: ClientSocket | null = null
@@ -46,10 +51,17 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
     socket.on('disconnect', () => {
       console.log(`[socket] Client disconnected: ${socket.id}`)
     })
+    socket.on('join_liquidity', () => {
+      socket.join('liquidity')
+      console.log(`[socket] Client ${socket.id} joined 'liquidity' room`)
+    })
   })
 
   // Connect to the upstream socket.io server
   upstreamSocket = connectUpstream(env.get('UPSTREAM_SOCKET_URL'), {
+    auth: {
+      token: env.get('SOCKET_IO_AUTH_TOKEN'),
+    },
     extraHeaders: {
       'X-Api-Key': env.get('UPSTREAM_API_KEY'),
     },
@@ -59,6 +71,7 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
 
   upstreamSocket.on('connect', () => {
     console.log('[socket] Connected to upstream socket')
+    upstreamSocket?.emit('join_liquidity')
   })
 
   upstreamSocket.on('disconnect', (reason) => {
@@ -70,8 +83,24 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
   })
 
   // Forward every upstream event to all connected admin clients
-  upstreamSocket.onAny((event: string, ...args: unknown[]) => {
+  /*   upstreamSocket.onAny((event: string, ...args: unknown[]) => {
     io!.emit(event, ...args)
+  }) */
+
+  upstreamSocket.on('gas', (data: LiquidityGasPayload) => {
+    io?.to('liquidity').emit('gas', data)
+
+    /* data: LiquidityGasPayload     */
+  })
+  upstreamSocket.on('balances', (data: LiquidityBalancesPayload) => {
+    io?.to('liquidity').emit('balances', data)
+
+    /* data: LiquidityBalancesPayload */
+  })
+  upstreamSocket.on('console', (data: LiquidityConsolePayload) => {
+    console.log(data.text)
+
+    /* data: LiquidityConsolePayload  */
   })
 
   return io

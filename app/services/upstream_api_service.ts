@@ -10,7 +10,9 @@ const client = ky.create({
 })
 
 export const upstreamApiService = {
-  async get(route: string, queryParams?: Record<string, string | number>): Promise<unknown> {
+  async get<
+    T extends { route: string; queryParams?: Record<string, string | number>; response?: unknown },
+  >(route: T['route'], queryParams?: T['queryParams']): Promise<T['response']> {
     try {
       const path = route.startsWith('/') ? route.slice(1) : route
       const searchParams: Record<string, string> = {}
