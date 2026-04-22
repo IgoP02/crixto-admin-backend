@@ -103,7 +103,7 @@ export default class CurrenciesController {
     const { cryptoAssetId, networkId } = params
 
     const res = await upstreamApiService.put<UpstreamApi['thresholds']['update']>(
-      `/crypto-asset-thresholds/${cryptoAssetId}/${networkId}`,
+      `/crypto-asset-thresholds/${networkId}/${cryptoAssetId}`,
       payload
     )
 

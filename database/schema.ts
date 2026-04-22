@@ -8,7 +8,18 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class AuthAccessTokenSchema extends BaseModel {
-  static $columns = ['abilities', 'createdAt', 'expiresAt', 'hash', 'id', 'lastUsedAt', 'name', 'tokenableId', 'type', 'updatedAt'] as const
+  static $columns = [
+    'abilities',
+    'createdAt',
+    'expiresAt',
+    'hash',
+    'id',
+    'lastUsedAt',
+    'name',
+    'tokenableId',
+    'type',
+    'updatedAt',
+  ] as const
   $columns = AuthAccessTokenSchema.$columns
   @column()
   declare abilities: string
@@ -32,8 +43,30 @@ export class AuthAccessTokenSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ModuleSchema extends BaseModel {
+  static $columns = ['admin', 'createdAt', 'id', 'name'] as const
+  $columns = ModuleSchema.$columns
+  @column()
+  declare admin: boolean
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+}
+
 export class PasskeySchema extends BaseModel {
-  static $columns = ['backedUp', 'counter', 'credId', 'id', 'publicKey', 'transports', 'userId', 'webauthnUserId'] as const
+  static $columns = [
+    'backedUp',
+    'counter',
+    'credId',
+    'id',
+    'publicKey',
+    'transports',
+    'userId',
+    'webauthnUserId',
+  ] as const
   $columns = PasskeySchema.$columns
   @column()
   declare backedUp: boolean
@@ -53,8 +86,38 @@ export class PasskeySchema extends BaseModel {
   declare webauthnUserId: string
 }
 
+export class PermissionSchema extends BaseModel {
+  static $columns = ['createdAt', 'doubleAuth', 'id', 'key', 'name', 'type', 'updatedAt'] as const
+  $columns = PermissionSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column()
+  declare doubleAuth: boolean
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare key: string
+  @column()
+  declare name: string
+  @column()
+  declare type: 'read' | 'create' | 'update' | 'delete' | 'revoke' | 'run'
+
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'givenNames', 'id', 'lastNames', 'password', 'requiresPasskeyLogin', 'super', 'updatedAt'] as const
+  static $columns = [
+    'createdAt',
+    'email',
+    'givenNames',
+    'id',
+    'lastNames',
+    'password',
+    'requiresPasskeyLogin',
+    'super',
+    'updatedAt',
+  ] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

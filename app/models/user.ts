@@ -4,8 +4,9 @@ import { type AccessToken, DbAccessTokensProvider } from '@adonisjs/auth/access_
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import { compose } from '@adonisjs/core/helpers'
 import hash from '@adonisjs/core/services/hash'
-import { column, hasMany } from '@adonisjs/lucid/orm'
-import type { HasMany } from '@adonisjs/lucid/types/relations'
+import { column, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import type { HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
+import Permission from './permission.ts'
 
 export default class User extends compose(
   UserSchema,
@@ -21,6 +22,9 @@ export default class User extends compose(
     foreignKey: 'userId',
   })
   declare passkeys: HasMany<typeof Passkey>
+
+  @manyToMany(() => Permission, { pivotTable: 'user_permissions' })
+  declare permissions: ManyToMany<typeof Permission>
 
   get fullName() {
     return [this.givenNames, this.lastNames].filter(Boolean).join(' ').trim() || null

@@ -67,25 +67,13 @@ export interface UpstreamApi extends Record<string, Record<string, EndpointShape
       params: { id: number }
       response: { enabled: boolean }
     }
-    /*     store: {
-      method: 'POST'
-      route: '/networks'
-      payload: {
-        symbol: string
-        type: string
-        name: string
-        baseUnitFactor: string
-        platformFee: string
-        networks: {
-          name: string
-          enabled: boolean
-          standard: string
-          allowsTokens: boolean
-          smartContractId: number
-        }
-      }
-      response: NetworkResponse | PaginatedResponse<Network>
-    } */
+    setGasWarningThreshold: {
+      method: 'PUT'
+      route: `/networks/${number}/set-gas-warning-threshold`
+      params: { id: number }
+      payload: { gasWarningThreshold: string }
+      response: { id: number; gasWarningThreshold: string }
+    }
   }
   signers: {
     index: {

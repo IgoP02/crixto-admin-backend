@@ -9,6 +9,7 @@ import {
   type LiquidityConsolePayload,
   type LiquidityGasPayload,
 } from '../interfaces/upstream_api.ts'
+import { emitConfigUpdate } from './config_update_emitter.ts'
 
 let io: SocketServer | null = null
 let upstreamSocket: ClientSocket | null = null
@@ -32,6 +33,7 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
   io.use(async (socket, next) => {
     try {
       if (env.get('NODE_ENV') !== 'production') return next()
+
       const raw = socket.handshake.auth?.token as string | undefined
       if (!raw) return next(new Error('Authentication required'))
 
@@ -48,6 +50,7 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
 
   io.on('connection', (socket) => {
     console.log(`[socket] Client connected: ${socket.id} (userId=${socket.data.userId})`)
+    socket.join('config')
     socket.on('disconnect', () => {
       console.log(`[socket] Client disconnected: ${socket.id}`)
     })
@@ -72,6 +75,7 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
   upstreamSocket.on('connect', () => {
     console.log('[socket] Connected to upstream socket')
     upstreamSocket?.emit('join_liquidity')
+    upstreamSocket?.emit('join_config')
   })
 
   upstreamSocket.on('disconnect', (reason) => {
@@ -101,6 +105,12 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
     console.log(data.text)
 
     /* data: LiquidityConsolePayload  */
+  })
+
+  upstreamSocket.on('signer_status', (data: { id: number; isReady: boolean; type: string }) => {
+    console.log('Signer status: ', data)
+
+    emitConfigUpdate('signer', 'ready_status', { id: data.id, isReady: data.isReady })
   })
 
   return io

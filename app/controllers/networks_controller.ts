@@ -1,6 +1,7 @@
 import { emitConfigUpdate } from '#services/config_update_emitter'
 import { upstreamApiService } from '#services/upstream_api_service'
 import type { HttpContext } from '@adonisjs/core/http'
+import vine from '@vinejs/vine'
 import { type UpstreamApi } from '../interfaces/upstream_api.ts'
 
 export default class NetworksController {
@@ -26,6 +27,26 @@ export default class NetworksController {
     } catch (error) {
       console.error('Error toggling network status:', error)
       return response.internalServerError({ message: 'Failed to toggle network status' })
+    }
+  }
+
+  async setGasWarningThreshold({ request, response }: HttpContext) {
+    const { id } = request.params()
+    const { threshold } = await request.validateUsing(
+      vine.create({ threshold: vine.string().regex(/^\d+$/) })
+    )
+    try {
+      const data = await upstreamApiService.put<UpstreamApi['networks']['setGasWarningThreshold']>(
+        `/networks/${id}/set-gas-warning-threshold`,
+        { gasWarningThreshold: threshold }
+      )
+
+      emitConfigUpdate('network', 'update', { ...data })
+
+      return response.ok(data)
+    } catch (error) {
+      console.error('Error setting gas warning threshold:', error)
+      return response.internalServerError({ message: 'Failed to set gas warning threshold' })
     }
   }
 }

@@ -9,6 +9,7 @@ servers:
     description: Local API Server
 
 tags:
+  - name: System
   - name: Auth
   - name: Account
   - name: Users
@@ -19,6 +20,89 @@ tags:
   - name: Liquidity
 
 paths:
+  /:
+    get:
+      tags: [System]
+      summary: Health check
+      description: Returns a basic payload to verify the API is reachable.
+      responses:
+        '200':
+          description: API is reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hello]
+                properties:
+                  hello:
+                    type: string
+                    example: world
+
+  /docs/openapi.yaml:
+    get:
+      tags: [System]
+      summary: Download OpenAPI document
+      description: Returns the raw OpenAPI YAML file used by the API docs.
+      responses:
+        '200':
+          description: OpenAPI YAML file
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /docs:
+    get:
+      tags: [System]
+      summary: Swagger UI documentation
+      description: Serves the Swagger UI HTML page.
+      responses:
+        '200':
+          description: Swagger UI page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /default-setup:
+    post:
+      tags: [System]
+      summary: Bootstrap default super user
+      description: Creates a super user when no super user exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Default super user created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, password, user]
+                properties:
+                  email:
+                    type: string
+                    format: email
+                  password:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Super user already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
   /auth/signup:
     post:
       tags: [Auth]
@@ -146,6 +230,7 @@ paths:
     get:
       tags: [Account]
       summary: Get current authenticated profile
+      x-permission: account.read
       security:
         - bearerAuth: []
       responses:
@@ -155,11 +240,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
   /users:
     post:
       tags: [Users]
       summary: Create a user as an authenticated user
+      x-permission: users.create
       security:
         - bearerAuth: []
       requestBody:
@@ -175,12 +263,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserWithTokenResponse'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
   /crypto_assets:
     get:
       tags: [CryptoAssets]
       summary: List crypto assets
       description: Relays upstream GET /crypto-assets endpoint.
+      x-permission: crypto_assets.read
       security:
         - bearerAuth: []
       parameters:
@@ -206,11 +297,14 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/CryptoAssetIndexResponse'
                   - $ref: '#/components/schemas/PaginatedCryptoAssetResponse'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
     post:
       tags: [CryptoAssets]
       summary: Create crypto asset
       description: Relays upstream POST /crypto-assets endpoint.
+      x-permission: crypto_assets.create
       security:
         - bearerAuth: []
       requestBody:
@@ -228,12 +322,15 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/CryptoAssetIndexResponse'
                   - $ref: '#/components/schemas/PaginatedCryptoAssetResponse'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
   /crypto_assets/{id}:
     put:
       tags: [CryptoAssets]
       summary: Update crypto asset
       description: Relays upstream PUT /crypto-assets/:id endpoint.
+      x-permission: crypto_assets.update
       security:
         - bearerAuth: []
       parameters:
@@ -306,14 +403,28 @@ paths:
                     sweep_threshold_amount: '1000000'
                     multisig_min_amount: '1000000'
                     refill_threshold_amount: '20'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
-  /crypto_assets/movement-threshold:
+  /crypto_assets/movement-threshold/{networkId}/{cryptoAssetId}:
     put:
       tags: [CryptoAssets]
       summary: Update crypto asset movement thresholds
-      description: Updates crypto asset movement thresholds by forwarding to upstream PUT /crypto-asset-thresholds/:cryptoAssetId/:networkId.
+      description: Updates crypto asset movement thresholds by forwarding to upstream PUT /crypto-asset-thresholds/:networkId/:cryptoAssetId.
+      x-permission: crypto_assets.update
       security:
         - bearerAuth: []
+      parameters:
+        - in: path
+          name: networkId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: cryptoAssetId
+          required: true
+          schema:
+            type: integer
       requestBody:
         required: true
         content:
@@ -327,12 +438,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CryptoAssetMovementThresholdUpdateResponse'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
   /networks:
     get:
       tags: [Networks]
       summary: List networks
       description: Relays upstream GET /networks endpoint.
+      x-permission: networks.read
       security:
         - bearerAuth: []
       parameters:
@@ -358,12 +472,15 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/NetworkIndexResponse'
                   - $ref: '#/components/schemas/PaginatedNetworkResponse'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
   /networks/{id}/toggle-status:
     post:
       tags: [Networks]
       summary: Toggle network status
       description: Relays upstream POST /networks/:id/toggle-status endpoint.
+      x-permission: networks.update
       security:
         - bearerAuth: []
       parameters:
@@ -379,12 +496,45 @@ paths:
             application/json:
               schema:
                 type: 'null'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
+
+  /networks/{id}/set-gas-warning-threshold:
+    put:
+      tags: [Networks]
+      summary: Set gas warning threshold
+      description: Sets the network gas warning threshold by forwarding to upstream PUT /networks/:id/set-gas-warning-threshold.
+      x-permission: networks.update
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NetworkGasWarningThresholdUpdateRequest'
+      responses:
+        '200':
+          description: Network gas warning threshold updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkGasWarningThresholdUpdateResponse'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
   /signers:
     get:
       tags: [Signers]
       summary: List signers
       description: Relays upstream GET /signers endpoint.
+      x-permission: signers.read
       security:
         - bearerAuth: []
       parameters:
@@ -410,11 +560,14 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/SignerIndexResponse'
                   - $ref: '#/components/schemas/PaginatedSignerResponse'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
     post:
       tags: [Signers]
       summary: Create signer
       description: Relays upstream POST /signers endpoint.
+      x-permission: signers.create
       security:
         - bearerAuth: []
       requestBody:
@@ -430,12 +583,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Signer'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
   /signers/{id}/disable:
     post:
       tags: [Signers]
       summary: Disable signer
       description: Relays upstream POST /signers/:id/disable endpoint.
+      x-permission: signers.update
       security:
         - bearerAuth: []
       parameters:
@@ -451,12 +607,15 @@ paths:
             application/json:
               schema:
                 type: 'null'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
   /liquidity/snapshot:
     get:
       tags: [Liquidity]
       summary: Get current liquidity snapshot
       description: Relays upstream GET /liquidity/snapshot endpoint. Returns current gas balances, wallet information, and asset balances.
+      x-permission: liquidity.read
       security:
         - bearerAuth: []
       responses:
@@ -466,8 +625,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LiquiditySnapshotResponse'
+        '403':
+          $ref: '#/components/responses/AuthorizationFailure'
 
 components:
+  responses:
+    AuthorizationFailure:
+      description: Authenticated user does not have the required permission.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthorizationFailureResponse'
+
   securitySchemes:
     bearerAuth:
       type: http
@@ -528,6 +697,17 @@ components:
         message:
           type: string
           example: Logged out successfully
+
+    AuthorizationFailureResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: E_AUTHORIZATION_FAILURE
+        message:
+          type: string
+          example: 'Missing permission: networks.update'
 
     VerificationResponse:
       type: object
@@ -605,19 +785,10 @@ components:
           items:
             $ref: '#/components/schemas/CryptoAssetUpdateNetworkRequest'
 
-    CryptoAssetMovementThresholdRouteParams:
-      type: object
-      required: [cryptoAssetId, networkId]
-      properties:
-        cryptoAssetId:
-          type: integer
-        networkId:
-          type: integer
-
     CryptoAssetMovementThresholdUpdateRequest:
       type: object
       required:
-        [accountDailyWithdrawLimit, accountsWithdrawMinFunds, accountsWithdrawMaxFunds, params]
+        [accountDailyWithdrawLimit, accountsWithdrawMinFunds, accountsWithdrawMaxFunds]
       properties:
         accountDailyWithdrawLimit:
           type: string
@@ -631,8 +802,6 @@ components:
           type: number
           minimum: 1
           maximum: 100
-        params:
-          $ref: '#/components/schemas/CryptoAssetMovementThresholdRouteParams'
 
     CryptoAssetMovementThresholdUpdateResponse:
       type: object
@@ -744,6 +913,9 @@ components:
           type: boolean
         smartContractId:
           type: integer
+        gasWarningThreshold:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -759,6 +931,24 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/Network'
+
+    NetworkGasWarningThresholdUpdateRequest:
+      type: object
+      required: [threshold]
+      properties:
+        threshold:
+          type: string
+          pattern: '^\d+$'
+          description: Gas warning threshold as a numeric string.
+
+    NetworkGasWarningThresholdUpdateResponse:
+      type: object
+      required: [id, gasWarningThreshold]
+      properties:
+        id:
+          type: integer
+        gasWarningThreshold:
+          type: string
 
     Signer:
       type: object

@@ -128,7 +128,13 @@ router.group(() => {
       router.get('/', [controllers.Currencies, 'index'])
       router.post('/', [controllers.Currencies, 'store'])
       router.put('/:id', [controllers.Currencies, 'update'])
-      router.put('/movement-threshold', [controllers.Currencies, 'updateThresholds'])
+      router
+        .put('/movement-threshold/:networkId/:cryptoAssetId', [
+          controllers.Currencies,
+          'updateThresholds',
+        ])
+        .where('networkId', router.matchers.number())
+        .where('cryptoAssetId', router.matchers.number())
     })
     .prefix('crypto_assets')
     .as('crypto_assets')
@@ -138,6 +144,7 @@ router.group(() => {
     .group(() => {
       router.get('/', [controllers.Networks, 'index'])
       router.post('/:id/toggle-status', [controllers.Networks, 'toggleStatus'])
+      router.put('/:id/set-gas-warning-threshold', [controllers.Networks, 'setGasWarningThreshold'])
     })
     .prefix('networks')
     .as('networks')
